@@ -12,19 +12,23 @@ interface Props {
   scale?: number;
   ribStrength?: number;
   highlight?: boolean;
+  /** 钢筋颜色（CSS hex，如 '#7a8694'）。未设置时退回灰色默认 */
+  color?: string;
 }
 
-// 全局共享材质（按等级/直径不需要分，外观一致即可）
-let _sharedMat: THREE.MeshStandardMaterial | null = null;
+// 按颜色缓存材质，颜色相同的钢筋共享同一材质实例
+const _matCache = new Map<string, THREE.MeshStandardMaterial>();
 let _highlightMat: THREE.MeshStandardMaterial | null = null;
-function getMat(ribStrength: number) {
-  if (!_sharedMat) {
-    _sharedMat = createRibbedRebarMaterial({ ribStrength });
+function getMat(color: string, ribStrength: number) {
+  let mat = _matCache.get(color);
+  if (!mat) {
+    mat = createRibbedRebarMaterial({ color, ribStrength });
+    _matCache.set(color, mat);
   } else {
-    const u = (_sharedMat as any).userData.ribUniforms;
+    const u = (mat as any).userData.ribUniforms;
     if (u) u.uRibStrength.value = ribStrength;
   }
-  return _sharedMat;
+  return mat;
 }
 function getHighlightMat() {
   if (!_highlightMat) {
@@ -33,7 +37,7 @@ function getHighlightMat() {
   return _highlightMat;
 }
 
-export function Rebar({ spec, scale = 0.001, ribStrength = 0.55, highlight }: Props) {
+export function Rebar({ spec, scale = 0.001, ribStrength = 0.55, highlight, color = '#7a8694' }: Props) {
   const geom = useMemo(
     () => RebarGeom.buildRebarTubeGeometry(spec, scale),
     [spec, scale, RebarGeom.buildRebarTubeGeometry],
@@ -47,6 +51,6 @@ export function Rebar({ spec, scale = 0.001, ribStrength = 0.55, highlight }: Pr
   }, [geom]);
 
   return (
-    <mesh ref={ref} geometry={geom} material={highlight ? getHighlightMat() : getMat(ribStrength)} castShadow />
+    <mesh ref={ref} geometry={geom} material={highlight ? getHighlightMat() : getMat(color, ribStrength)} castShadow />
   );
 }

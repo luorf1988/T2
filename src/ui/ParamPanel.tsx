@@ -59,7 +59,44 @@ export function ParamPanel() {
         <Slider label={`爆炸视图 ${ui.explode.toFixed(2)}`} min={0} max={1} step={0.01} value={ui.explode} onChange={(v) => setUI({ explode: v })} />
         <Slider label={`月牙肋强度 ${ui.ribStrength.toFixed(2)}`} min={0} max={1.2} step={0.05} value={ui.ribStrength} onChange={(v) => setUI({ ribStrength: v })} />
       </div>
+
+      <div className="flex items-center justify-between mt-4 mb-2">
+        <h2 className="text-base font-semibold">钢筋颜色</h2>
+        <button
+          onClick={() => setUI({
+            colorLongTop: '#7a8694',
+            colorLongBot: '#7a8694',
+            colorStir: '#7a8694',
+          })}
+          className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200"
+          title="恢复钢筋原色"
+        >
+          恢复原色
+        </button>
+      </div>
+      <div className="space-y-2">
+        <ColorRow label="上部纵筋" value={ui.colorLongTop} onChange={(v) => setUI({ colorLongTop: v })} />
+        <ColorRow label="下部纵筋" value={ui.colorLongBot} onChange={(v) => setUI({ colorLongBot: v })} />
+        <ColorRow label="箍筋" value={ui.colorStir} onChange={(v) => setUI({ colorStir: v })} />
+      </div>
     </div>
+  );
+}
+
+function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex items-center justify-between cursor-pointer">
+      <span className="text-neutral-300">{label}</span>
+      <span className="flex items-center gap-2">
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-8 h-6 rounded border border-neutral-700 bg-neutral-900 cursor-pointer"
+        />
+        <span className="text-xs text-neutral-400 tabular-nums w-16">{value}</span>
+      </span>
+    </label>
   );
 }
 

@@ -46,9 +46,16 @@ export function KLScene() {
         opacity={ui.concreteOpacity}
         visible={ui.showConcrete}
       />
-      {filtered.map((s) => (
-        <Rebar key={s.id} spec={s} ribStrength={ui.ribStrength} />
-      ))}
+      {filtered.map((s) => {
+        const color = s.id.startsWith('kl-top-')
+          ? ui.colorLongTop
+          : s.id.startsWith('kl-bot-')
+            ? ui.colorLongBot
+            : s.kind === 'stirrup'
+              ? ui.colorStir
+              : ui.colorLongTop;
+        return <Rebar key={s.id} spec={s} ribStrength={ui.ribStrength} color={color} />;
+      })}
     </group>
   );
 }

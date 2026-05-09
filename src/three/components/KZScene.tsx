@@ -47,9 +47,10 @@ export function KZScene() {
         opacity={ui.concreteOpacity}
         visible={ui.showConcrete}
       />
-      {filtered.map((s) => (
-        <Rebar key={s.id} spec={s} ribStrength={ui.ribStrength} />
-      ))}
+      {filtered.map((s) => {
+        const color = s.kind === 'stirrup' ? ui.colorStir : ui.colorLongTop;
+        return <Rebar key={s.id} spec={s} ribStrength={ui.ribStrength} color={color} />;
+      })}
     </group>
   );
 }

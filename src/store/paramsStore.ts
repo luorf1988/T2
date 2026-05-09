@@ -11,6 +11,12 @@ export interface UIState {
   showStirrups: boolean;
   explode: number; // 0..1 爆炸视图程度
   ribStrength: number; // 月牙肋强度
+  /** 上部纵筋颜色（KZ 所有纵筋也用此色） */
+  colorLongTop: string;
+  /** 下部纵筋颜色（仅 KL 梁适用） */
+  colorLongBot: string;
+  /** 箍筋颜色 */
+  colorStir: string;
 }
 
 export interface AppState {
@@ -32,6 +38,10 @@ const DEFAULT_UI: UIState = {
   showStirrups: true,
   explode: 0,
   ribStrength: 0.55,
+  // 钢筋原色：与材质默认色一致（添加颜色参数前所有钢筋呈现的灰蓝）
+  colorLongTop: '#7a8694',
+  colorLongBot: '#7a8694',
+  colorStir: '#7a8694',
 };
 
 export const useStore = create<AppState>((set) => ({
