@@ -17,8 +17,10 @@ export interface KLParams {
   nTop: number;
   /** 下部通长筋根数 */
   nBot: number;
-  /** 通长筋直径 */
-  longD: number;
+  /** 上部通长筋直径 */
+  longDTop: number;
+  /** 下部通长筋直径 */
+  longDBot: number;
   longGrade: RebarGrade;
   /** 箍筋直径 */
   stirD: number;
@@ -38,7 +40,8 @@ export const DEFAULT_KL: KLParams = {
   cover: 25,
   nTop: 2,
   nBot: 4,
-  longD: 22,
+  longDTop: 22,
+  longDBot: 22,
   longGrade: 'C',
   stirD: 8,
   stirGrade: 'B',
@@ -62,28 +65,31 @@ function zPositions(n: number, b: number, cover: number, stirD: number, longD: n
 /**
  * 上下通长筋：沿 X 方向贯通，两端做 90° 弯锚（22G101 端支座）。
  * 弯钩平直段 15d：上部筋两端朝下弯，下部筋两端朝上弯（均朝梁内）。
+ * 上部、下部纵筋直径可分别设置（longDTop / longDBot）。
  */
 function buildLongitudinals(p: KLParams): RebarSpec[] {
-  const insetY = p.cover + p.stirD + p.longD / 2;
-  const yTop = p.h - insetY;
-  const yBot = insetY;
-  const zsTop = zPositions(p.nTop, p.b, p.cover, p.stirD, p.longD);
-  const zsBot = zPositions(p.nBot, p.b, p.cover, p.stirD, p.longD);
+  const insetTop = p.cover + p.stirD + p.longDTop / 2;
+  const insetBot = p.cover + p.stirD + p.longDBot / 2;
+  const yTop = p.h - insetTop;
+  const yBot = insetBot;
+  const zsTop = zPositions(p.nTop, p.b, p.cover, p.stirD, p.longDTop);
+  const zsBot = zPositions(p.nBot, p.b, p.cover, p.stirD, p.longDBot);
   // 22G101：端支座 90° 弯锚平直段 15d
-  const hookLen = Math.max(15 * p.longD, 150);
+  const hookLenTop = Math.max(15 * p.longDTop, 150);
+  const hookLenBot = Math.max(15 * p.longDBot, 150);
   // 下部筋两端整体内移 2d，与上部筋的竖向钩尾在 X 方向错开，避免视觉重叠
-  const xStaggerBot = 2 * p.longD;
+  const xStaggerBot = 2 * p.longDBot;
   const specs: RebarSpec[] = [];
   zsTop.forEach((z, i) => {
     const left = new THREE.Vector3(0, yTop, z);
     const right = new THREE.Vector3(p.L, yTop, z);
     // 上部筋：钩尾朝下（向梁内），y = yTop − hookLen
-    const leftHook = new THREE.Vector3(0, yTop - hookLen, z);
-    const rightHook = new THREE.Vector3(p.L, yTop - hookLen, z);
+    const leftHook = new THREE.Vector3(0, yTop - hookLenTop, z);
+    const rightHook = new THREE.Vector3(p.L, yTop - hookLenTop, z);
     specs.push({
       id: `kl-top-${i}`,
       kind: 'longitudinal',
-      diameter: p.longD,
+      diameter: p.longDTop,
       grade: p.longGrade,
       points: [leftHook, left, right, rightHook],
     });
@@ -94,12 +100,12 @@ function buildLongitudinals(p: KLParams): RebarSpec[] {
     const left = new THREE.Vector3(xL, yBot, z);
     const right = new THREE.Vector3(xR, yBot, z);
     // 下部筋：钩尾朝上（向梁内），y = yBot + hookLen
-    const leftHook = new THREE.Vector3(xL, yBot + hookLen, z);
-    const rightHook = new THREE.Vector3(xR, yBot + hookLen, z);
+    const leftHook = new THREE.Vector3(xL, yBot + hookLenBot, z);
+    const rightHook = new THREE.Vector3(xR, yBot + hookLenBot, z);
     specs.push({
       id: `kl-bot-${i}`,
       kind: 'longitudinal',
-      diameter: p.longD,
+      diameter: p.longDBot,
       grade: p.longGrade,
       points: [leftHook, left, right, rightHook],
     });
