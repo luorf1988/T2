@@ -47,36 +47,41 @@ export function buildRebarTubeGeometry(spec: RebarSpec, scale = 1): THREE.Buffer
   const he = addHook(pts[pts.length - 1], pts[pts.length - 2], spec.hookEnd);
   if (he) finalPts.push(he);
 
-  const curve = new THREE.CatmullRomCurve3(finalPts, false, 'catmullrom', 0.2);
+  // ≥3 点：折线 + 角部圆角（保持直段为直线，弯钩处为干净圆弧）
+  // 仅 2 点：直线
+  let curve: THREE.Curve<THREE.Vector3>;
+  let hasFillet = false;
+  if (finalPts.length >= 3) {
+    const filletR = Math.max(2 * d, 0.005);
+    curve = makeFilletedCurvePath(finalPts, filletR);
+    hasFillet = true;
+  } else {
+    curve = new THREE.CatmullRomCurve3(finalPts, false, 'catmullrom', 0.0);
+  }
   const length = curve.getLength();
-  const segments = Math.max(40, Math.floor(length * tubularSegmentsPerUnit));
+  // 带圆角的曲线：圆角段（≈π·R/2）只占总长很小比例，需要更高密度才能让 90° 圆弧
+  // 在 TubeGeometry 中得到足够采样，否则视觉上会显得弯角附近"微弯曲"。
+  const density = hasFillet ? 0.4 : tubularSegmentsPerUnit;
+  const segments = Math.max(80, Math.floor(length * density));
   return new THREE.TubeGeometry(curve, segments, r, 12, false);
 }
 
 /**
- * 箍筋（同角双 135° 弯钩，两根平行钩尾从同一角斜插核心区），依据 16G101。
+ * 箍筋（同角双 135° 弯钩），依据 16G101。
  *
  * 输入 pts 必须按 [A=TL, B=TR, C=BR, D=BL] 顺序，A 为开钩角。
  *
- * 几何（一根钢筋折成）：
- *   - 主体绕 B、C、D 三个角形成 90° 圆角；A 角处钢筋"开口"。
- *   - 两端弯折点 P1（顶边距 A 为 inset）、P2（左边距 A 为 inset），
- *     从弯折点沿 inward = (u_AB + u_AD)/√2 方向斜插核心区，长度 ≥ max(10d, 75mm)。
- *   - inset = 2.5d，使钩尾平直段距 A 中心 ≈ inset/√2 ≈ 1.77d，
- *     大于角部纵筋半径 + 箍筋半径，不会与纵筋相交；同时视觉上钩尾紧贴角部。
- *
- * 路径（7 点）：tip1 → P1 → B → C → D → P2 → tip2
- *   P1 = A + inset · u_AB        顶边上靠近 A 的弯折点
- *   P2 = A + inset · u_AD        左边上靠近 A 的弯折点
- *   tip1 = P1 + L_hook · inward
- *   tip2 = P2 + L_hook · inward
- *
- * 转角验证：
- *   P1：d_in = −inward, d_out =  u_AB  → cos = −1/√2 → 135° ✓
- *   B、C、D：相邻边正交 → 90° ✓
- *   P2：d_in = −u_AD,  d_out =  inward → cos = −1/√2 → 135° ✓
- *
- * 在所有内点由 makeFilletedCurvePath 自动加 ≈1.5d 圆角。
+ * 几何要点：
+ *   - 平面折线 7 点：tip1 → P1 → B → C → D → P2 → tip2
+ *     · P1 = A + 2.5d·u_AB（顶边距 A 2.5d 处的弯折点）
+ *     · P2 = A + 2.5d·u_AD（左边距 A 2.5d 处的弯折点）
+ *     · tip1 = P1 + L·inward, tip2 = P2 + L·inward, L ≥ max(10d, 75mm)
+ *     · P1、P2 处转角恰为 135°；B、C、D 为 90°
+ *   - 整根钢筋沿路径长度做线性轴向（梁长方向）偏移：tip1 端 +stagger，
+ *     tip2 端 −stagger，中段为 0。这样箍筋形成一个微小的"单匝螺旋"，
+ *     两个钩头自然错开 2·stagger，不再实物重叠；视觉上整体几乎仍是平面环。
+ *   - 所有内点由 makeFilletedCurvePath 自动加 ≈1.5d 圆角，弯钩为干净的
+ *     单点 135° 折弯（圆角化后），不再向外凸起。
  */
 function buildClosedStirrupWith135HooksAtCorner(
   pts: THREE.Vector3[],
@@ -90,35 +95,43 @@ function buildClosedStirrupWith135HooksAtCorner(
     return new THREE.TubeGeometry(curve, segments, r, 12, true);
   }
 
-  // pts = [A=TL, B=TR, C=BR, D=BL]
-  const A = pts[0];
-  const B = pts[1];
-  const C = pts[2];
-  const D = pts[3];
-
+  const A = pts[0]; const B = pts[1]; const C = pts[2]; const D = pts[3];
   const uAB = new THREE.Vector3().subVectors(B, A).normalize();
   const uAD = new THREE.Vector3().subVectors(D, A).normalize();
-  // 钩尾方向：朝核心区 45°（两钩平行）
   const inward = new THREE.Vector3().addVectors(uAB, uAD).normalize();
+  // 梁长方向（垂直于箍筋平面）
+  const axis = new THREE.Vector3().crossVectors(uAB, uAD).normalize();
 
-  // 弯折点距 A 沿边的距离：取 2.5d，使钩尾平直段距 A ≈ 1.77d，
-  // 既能避开角部纵筋（>(d_long+d_stir)/2），又让视觉上钩尾紧贴角部。
-  const inset = Math.max(2.5 * d, 0.020);
-  const P1 = A.clone().add(uAB.clone().multiplyScalar(inset));
-  const P2 = A.clone().add(uAD.clone().multiplyScalar(inset));
+  const hookLen = Math.max(10 * d, 0.075);
+  const stagger = Math.max(1.0 * d, 0.008);
+  // 折弯点沿对应边外延方向，越过 A 处的角部纵筋再折弯，距 A 取 1.5d
+  // （> r_long + r_stir，保证圆角后的弯曲面落在角部纵筋外侧）。
+  const overshoot = Math.max(2.0 * d, 0.016);
 
-  const hookLen = Math.max(10 * d, 0.075); // ≥ max(10d, 75mm)
+  // P1 在顶边外延上（A 左侧 overshoot 处），P2 在左边外延上（A 上侧 overshoot 处）。
+  // 钢筋沿顶边一直走过 A 到 P1 再 135° 折弯，弯钩自然从外侧包绕角部纵筋。
+  const P1 = A.clone().add(uAB.clone().multiplyScalar(-overshoot));
+  const P2 = A.clone().add(uAD.clone().multiplyScalar(-overshoot));
   const tip1 = P1.clone().add(inward.clone().multiplyScalar(hookLen));
   const tip2 = P2.clone().add(inward.clone().multiplyScalar(hookLen));
 
-  // 7 点折线：tip1 → P1 → B → C → D → P2 → tip2
-  // 转角：P1 = 135°, B/C/D = 90°, P2 = 135°
-  const polyline: THREE.Vector3[] = [tip1, P1, B, C, D, P2, tip2];
+  // 平面折线（轴向偏移 = 0）。
+  const planar: THREE.Vector3[] = [tip1, P1, B, C, D, P2, tip2];
 
-  // 倒圆角半径（约 1.5d），makeFilletedCurvePath 自动按转角调整切线长。
+  // 沿累积弦长线性插值轴向偏移：t=0 → +stagger，t=1 → −stagger
+  const cum: number[] = [0];
+  for (let i = 1; i < planar.length; i++) {
+    cum.push(cum[i - 1] + planar[i].distanceTo(planar[i - 1]));
+  }
+  const total = cum[cum.length - 1] || 1;
+  const polyline: THREE.Vector3[] = planar.map((p, i) => {
+    const t = cum[i] / total;
+    const off = (1 - 2 * t) * stagger;
+    return p.clone().add(axis.clone().multiplyScalar(off));
+  });
+
   const filletR = Math.max(1.5 * d, 0.004);
   const curve = makeFilletedCurvePath(polyline, filletR);
-
   const length = curve.getLength();
   const segments = Math.min(600, Math.max(120, Math.floor(length * 100)));
   return new THREE.TubeGeometry(curve, segments, r, 12, false);

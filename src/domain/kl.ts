@@ -59,30 +59,49 @@ function zPositions(n: number, b: number, cover: number, stirD: number, longD: n
   return arr;
 }
 
-/** 上下通长筋（直筋，沿 X 方向贯通） */
+/**
+ * 上下通长筋：沿 X 方向贯通，两端做 90° 弯锚（22G101 端支座）。
+ * 弯钩平直段 15d：上部筋两端朝下弯，下部筋两端朝上弯（均朝梁内）。
+ */
 function buildLongitudinals(p: KLParams): RebarSpec[] {
   const insetY = p.cover + p.stirD + p.longD / 2;
   const yTop = p.h - insetY;
   const yBot = insetY;
   const zsTop = zPositions(p.nTop, p.b, p.cover, p.stirD, p.longD);
   const zsBot = zPositions(p.nBot, p.b, p.cover, p.stirD, p.longD);
+  // 22G101：端支座 90° 弯锚平直段 15d
+  const hookLen = Math.max(15 * p.longD, 150);
+  // 下部筋两端整体内移 2d，与上部筋的竖向钩尾在 X 方向错开，避免视觉重叠
+  const xStaggerBot = 2 * p.longD;
   const specs: RebarSpec[] = [];
   zsTop.forEach((z, i) => {
+    const left = new THREE.Vector3(0, yTop, z);
+    const right = new THREE.Vector3(p.L, yTop, z);
+    // 上部筋：钩尾朝下（向梁内），y = yTop − hookLen
+    const leftHook = new THREE.Vector3(0, yTop - hookLen, z);
+    const rightHook = new THREE.Vector3(p.L, yTop - hookLen, z);
     specs.push({
       id: `kl-top-${i}`,
       kind: 'longitudinal',
       diameter: p.longD,
       grade: p.longGrade,
-      points: [new THREE.Vector3(0, yTop, z), new THREE.Vector3(p.L, yTop, z)],
+      points: [leftHook, left, right, rightHook],
     });
   });
   zsBot.forEach((z, i) => {
+    const xL = xStaggerBot;
+    const xR = p.L - xStaggerBot;
+    const left = new THREE.Vector3(xL, yBot, z);
+    const right = new THREE.Vector3(xR, yBot, z);
+    // 下部筋：钩尾朝上（向梁内），y = yBot + hookLen
+    const leftHook = new THREE.Vector3(xL, yBot + hookLen, z);
+    const rightHook = new THREE.Vector3(xR, yBot + hookLen, z);
     specs.push({
       id: `kl-bot-${i}`,
       kind: 'longitudinal',
       diameter: p.longD,
       grade: p.longGrade,
-      points: [new THREE.Vector3(0, yBot, z), new THREE.Vector3(p.L, yBot, z)],
+      points: [leftHook, left, right, rightHook],
     });
   });
   return specs;
