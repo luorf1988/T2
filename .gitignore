@@ -3,3 +3,5 @@ dist
 .vite
 .DS_Store
 *.log
+# 设计参考资料（来自 Stitch / Figma 导出），不入仓
+stitch_rebar_3d_smart_visualizer/

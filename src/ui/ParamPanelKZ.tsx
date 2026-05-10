@@ -1,6 +1,7 @@
 import { useStore } from '@/store/paramsStore';
 import type { KZParams } from '@/domain/kz';
 import { NotationInput } from './NotationInput';
+import { NumberSlider, SelectInput } from './controls';
 
 interface NumberRow {
   label: string;
@@ -29,49 +30,42 @@ export function ParamPanelKZ() {
   const setKZ = useStore((s) => s.setKZ);
 
   return (
-    <>
+    <div className="flex flex-col gap-md">
       <NotationInput />
-      <div className="space-y-3 mb-5">
+      <div className="flex flex-col gap-md">
         {ROWS.map((r) => (
-          <div key={r.key as string}>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-neutral-300">{r.label}</label>
-              <span className="text-neutral-400 tabular-nums">
-                {kz[r.key]} {r.unit ?? ''}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={r.min}
-              max={r.max}
-              step={r.step ?? 1}
-              value={kz[r.key] as number}
-              onChange={(e) => setKZ({ [r.key]: Number(e.target.value) } as Partial<KZParams>)}
-              className="w-full accent-amber-500"
-            />
-          </div>
+          <NumberSlider
+            key={r.key as string}
+            label={r.label}
+            value={kz[r.key] as number}
+            min={r.min}
+            max={r.max}
+            step={r.step ?? 1}
+            unit={r.unit}
+            onChange={(v) => setKZ({ [r.key]: v } as Partial<KZParams>)}
+          />
         ))}
 
-        <div className="grid grid-cols-2 gap-2">
-          <Select
+        <div className="grid grid-cols-2 gap-md">
+          <SelectInput
             label="纵筋等级"
             value={kz.longGrade}
             options={[['A', 'HPB300'], ['B', 'HRB400'], ['C', 'HRB400'], ['D', 'HRB500']]}
             onChange={(v) => setKZ({ longGrade: v as any })}
           />
-          <Select
+          <SelectInput
             label="箍筋等级"
             value={kz.stirGrade}
             options={[['A', 'HPB300'], ['B', 'HRB400'], ['C', 'HRB400'], ['D', 'HRB500']]}
             onChange={(v) => setKZ({ stirGrade: v as any })}
           />
-          <Select
+          <SelectInput
             label="混凝土"
             value={kz.conc}
             options={[['C25', 'C25'], ['C30', 'C30'], ['C35', 'C35'], ['C40', 'C40'], ['C45', 'C45'], ['C50', 'C50']]}
             onChange={(v) => setKZ({ conc: v as any })}
           />
-          <Select
+          <SelectInput
             label="抗震等级"
             value={kz.seismic}
             options={[['1', '一级'], ['2', '二级'], ['3', '三级'], ['4', '四级'], ['NA', '非抗震']]}
@@ -79,25 +73,6 @@ export function ParamPanelKZ() {
           />
         </div>
       </div>
-    </>
-  );
-}
-
-function Select<T extends string>({ label, value, options, onChange }: {
-  label: string; value: T; options: [T, string][]; onChange: (v: T) => void;
-}) {
-  return (
-    <div>
-      <div className="text-neutral-300 mb-1 text-xs">{label}</div>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as T)}
-        className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-neutral-100"
-      >
-        {options.map(([v, label]) => (
-          <option key={v} value={v}>{label}</option>
-        ))}
-      </select>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useStore } from '@/store/paramsStore';
 import { generateKZRebars } from '@/domain/kz';
 import { generateKLRebars } from '@/domain/kl';
 import { buildBBS, bbsTotals } from '@/domain/bbs';
+import { Card, CardHeader, IconButton } from './controls';
 
 export function BBSTable() {
   const mode = useStore((s) => s.mode);
@@ -15,49 +16,64 @@ export function BBSTable() {
   const totals = useMemo(() => bbsTotals(rows), [rows]);
 
   return (
-    <div className="w-96 h-full overflow-y-auto bg-neutral-950/90 backdrop-blur border-l border-neutral-800 p-4 text-sm">
-      <h2 className="text-base font-semibold mb-3">钢筋下料表（BBS）</h2>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="text-neutral-400 border-b border-neutral-800">
-              <th className="text-left py-2 px-1">编号</th>
-              <th className="text-left py-2 px-1">类别</th>
-              <th className="text-left py-2 px-1">符号</th>
-              <th className="text-left py-2 px-1">形状</th>
-              <th className="text-right py-2 px-1">单根长(mm)</th>
-              <th className="text-right py-2 px-1">根数</th>
-              <th className="text-right py-2 px-1">总重(kg)</th>
+    <Card className="flex-1 min-w-0">
+      <CardHeader
+        title="钢筋工程量 (BBS)"
+        subtitle={`${rows.length} 项 · 总重 ${totals.totalKg.toFixed(1)} kg`}
+        icon="table_rows"
+        action={<IconButton icon="download" title="导出 CSV" />}
+      />
+      <div className="flex-1 overflow-auto">
+        <table className="w-full text-left border-collapse">
+          <thead className="sticky top-0 bg-surface-container-lowest/95 backdrop-blur border-b border-outline-variant text-label-sm font-semibold uppercase tracking-wider text-secondary">
+            <tr>
+              <th className="py-2 px-3 font-semibold">编号</th>
+              <th className="py-2 px-3 font-semibold">类别</th>
+              <th className="py-2 px-3 font-semibold">符号</th>
+              <th className="py-2 px-3 font-semibold">形状</th>
+              <th className="py-2 px-3 font-semibold text-right">单根长(mm)</th>
+              <th className="py-2 px-3 font-semibold text-right">根数</th>
+              <th className="py-2 px-3 font-semibold text-right">总重(kg)</th>
             </tr>
           </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.no} className="border-b border-neutral-900/60 hover:bg-neutral-900/40">
-                <td className="py-1.5 px-1 text-neutral-400">{r.no}</td>
-                <td className="py-1.5 px-1">{r.kindLabel}</td>
-                <td className="py-1.5 px-1 font-mono text-amber-400">{r.symbol}</td>
-                <td className="py-1.5 px-1 text-neutral-400">{r.shape}</td>
-                <td className="py-1.5 px-1 text-right tabular-nums">{r.singleLen}</td>
-                <td className="py-1.5 px-1 text-right tabular-nums">{r.count}</td>
-                <td className="py-1.5 px-1 text-right tabular-nums">{r.totalKg.toFixed(1)}</td>
+          <tbody className="font-mono text-data-mono text-on-surface-variant">
+            {rows.map((r, i) => (
+              <tr
+                key={r.no}
+                className={
+                  'border-b border-surface-variant hover:bg-surface-container-low transition-colors ' +
+                  (i % 2 === 1 ? 'bg-surface' : '')
+                }
+              >
+                <td className="py-2 px-3">{r.no}</td>
+                <td className="py-2 px-3">{r.kindLabel}</td>
+                <td className="py-2 px-3 text-primary-container font-semibold">{r.symbol}</td>
+                <td className="py-2 px-3 text-secondary">{r.shape}</td>
+                <td className="py-2 px-3 text-right tabular-nums">{r.singleLen}</td>
+                <td className="py-2 px-3 text-right tabular-nums">{r.count}</td>
+                <td className="py-2 px-3 text-right tabular-nums">{r.totalKg.toFixed(1)}</td>
               </tr>
             ))}
-            <tr className="border-t border-neutral-700">
-              <td colSpan={4} className="py-2 px-1 font-semibold">合计</td>
-              <td className="py-2 px-1 text-right tabular-nums text-neutral-400">{totals.totalLenM.toFixed(2)} m</td>
-              <td className="py-2 px-1 text-right tabular-nums">
+            <tr className="border-t-2 border-outline-variant bg-surface-container-low text-on-surface">
+              <td colSpan={4} className="py-2 px-3 font-sans font-semibold text-label-sm uppercase tracking-wider">
+                合计
+              </td>
+              <td className="py-2 px-3 text-right tabular-nums text-secondary">
+                {totals.totalLenM.toFixed(2)} m
+              </td>
+              <td className="py-2 px-3 text-right tabular-nums">
                 {rows.reduce((s, r) => s + r.count, 0)}
               </td>
-              <td className="py-2 px-1 text-right tabular-nums font-semibold text-amber-400">
+              <td className="py-2 px-3 text-right tabular-nums font-semibold text-primary-container">
                 {totals.totalKg.toFixed(1)}
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div className="mt-3 text-xs text-neutral-500 leading-relaxed">
-        说明：长度按几何中心线累加（含简化模型，不含弯钩 / 锚固延伸）。重量按 0.00617·d² kg/m 估算。
+      <div className="px-md py-sm text-label-sm text-secondary border-t border-outline-variant bg-surface-bright">
+        说明：长度按几何中心线累加（简化模型，不含弯钩 / 锚固延伸）。重量按 0.00617·d² kg/m 估算。
       </div>
-    </div>
+    </Card>
   );
 }

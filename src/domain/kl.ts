@@ -22,6 +22,12 @@ export interface KLParams {
   /** 下部通长筋直径 */
   longDBot: number;
   longGrade: RebarGrade;
+  /** 端支座负筋（上部非通长筋）每端根数 */
+  nSup: number;
+  /** 端支座负筋直径 */
+  supD: number;
+  /** 端支座负筋伸入跨内长度比（Ln/3 首排 ≈ 0.333，Ln/4 次排 ≈ 0.25） */
+  supLenRatio: number;
   /** 箍筋直径 */
   stirD: number;
   stirGrade: RebarGrade;
@@ -43,6 +49,9 @@ export const DEFAULT_KL: KLParams = {
   longDTop: 22,
   longDBot: 22,
   longGrade: 'C',
+  nSup: 2,
+  supD: 22,
+  supLenRatio: 1 / 3,
   stirD: 8,
   stirGrade: 'B',
   s1: 100,
@@ -63,16 +72,75 @@ function zPositions(n: number, b: number, cover: number, stirD: number, longD: n
 }
 
 /**
+ * 上部钢筋排布规划（遵 22G101 净距要求）。
+ * - 上部筋净距 ≥ max(30mm, 1.5d)，下部筋净距 ≥ max(25mm, d)。
+ * - 负筋优先布在上部第一排中间，与通长筋同一 Y 平面（通长筋占外侧角部位置）。
+ * - 第一排装不下的负筋下移一排，紧贴两侧角部向内依次排列。
+ */
+function planTopLayout(p: KLParams): {
+  yRow1: number;
+  yRow2: number;
+  zsCont: number[]; // 上部通长筋（均在 Row1，取外侧槽位）
+  zsSupRow1: number[];
+  zsSupRow2: number[];
+  cap1: number;
+} {
+  const dMax = Math.max(p.longDTop, p.supD);
+  // 22G101 上部纵筋净距
+  const clearMin = Math.max(30, 1.5 * dMax);
+  // 可用净宽（箸筋内侧间距）
+  const availInside = p.b - 2 * p.cover - 2 * p.stirD;
+  // 第一排可容纳最大根数：n*d + (n-1)*s ≤ availInside
+  const cap1 = Math.max(2, Math.floor((availInside + clearMin) / (dMax + clearMin)));
+
+  const nTop = Math.max(0, p.nTop);
+  const nSup = Math.max(0, p.nSup);
+  const nRow1 = Math.min(nTop + nSup, cap1);
+  const nContRow1 = Math.min(nTop, nRow1);
+  const nSupRow1 = nRow1 - nContRow1;
+  const nSupRow2 = nSup - nSupRow1;
+
+  // Row1 z 坐标（以 dMax 为内移基准）
+  const zsRow1 = zPositions(nRow1, p.b, p.cover, p.stirD, dMax);
+  // 按 |z| 降序取外侧位，前 nContRow1 个留给通长筋
+  const idxByOuter = zsRow1
+    .map((z, i) => ({ z, i }))
+    .sort((a, b) => Math.abs(b.z) - Math.abs(a.z))
+    .map((o) => o.i);
+  const contSet = new Set(idxByOuter.slice(0, nContRow1));
+  const zsCont = zsRow1.filter((_, i) => contSet.has(i));
+  const zsSupRow1 = zsRow1.filter((_, i) => !contSet.has(i));
+
+  // Row2：仅在溢出时使用。两侧对称从角部向内排列，间距 = dMax + clearMin
+  const zsSupRow2: number[] = [];
+  if (nSupRow2 > 0) {
+    const insetCorner = p.cover + p.stirD + dMax / 2;
+    const stepC2C = dMax + clearMin;
+    const nLeft = Math.ceil(nSupRow2 / 2);
+    const nRight = nSupRow2 - nLeft;
+    for (let i = 0; i < nLeft; i++) zsSupRow2.push(-p.b / 2 + insetCorner + i * stepC2C);
+    for (let i = 0; i < nRight; i++) zsSupRow2.push(p.b / 2 - insetCorner - i * stepC2C);
+  }
+
+  // Y 平面：Row1 与上部通长筋同高；Row2 下移（中心距 = dMax + max(25, dMax)）
+  const yRow1 = p.h - (p.cover + p.stirD + dMax / 2);
+  const rowGap = dMax + Math.max(25, dMax);
+  const yRow2 = yRow1 - rowGap;
+  return { yRow1, yRow2, zsCont, zsSupRow1, zsSupRow2, cap1 };
+}
+
+/**
  * 上下通长筋：沿 X 方向贯通，两端做 90° 弯锚（22G101 端支座）。
  * 弯钩平直段 15d：上部筋两端朝下弯，下部筋两端朝上弯（均朝梁内）。
  * 上部、下部纵筋直径可分别设置（longDTop / longDBot）。
  */
 function buildLongitudinals(p: KLParams): RebarSpec[] {
-  const insetTop = p.cover + p.stirD + p.longDTop / 2;
   const insetBot = p.cover + p.stirD + p.longDBot / 2;
-  const yTop = p.h - insetTop;
   const yBot = insetBot;
-  const zsTop = zPositions(p.nTop, p.b, p.cover, p.stirD, p.longDTop);
+  // 上部：使用统一排布规划（与负筋同排布化）
+  const layout = planTopLayout(p);
+  const yTop = layout.yRow1;
+  const zsTop = layout.zsCont;
   const zsBot = zPositions(p.nBot, p.b, p.cover, p.stirD, p.longDBot);
   // 22G101：端支座 90° 弯锚平直段 15d
   const hookLenTop = Math.max(15 * p.longDTop, 150);
@@ -110,6 +178,51 @@ function buildLongitudinals(p: KLParams): RebarSpec[] {
       points: [leftHook, left, right, rightHook],
     });
   });
+  return specs;
+}
+
+/**
+ * 端支座负筋（上部非通长筋）：仅在两端支座附近，从支座边伸入跨内 Ln × ratio。
+ * 22G101：首排取 Ln/3，次排取 Ln/4；本实现以 L 近似 Ln。
+ * 外端在支座做 90° 弯锚（平直段 15d，钩尾朝下）。
+ * 排布：优先与通长筋同排中间位置（yRow1）；溢出时下移一排，两侧对称从角部向内排列。
+ */
+function buildSupportBars(p: KLParams): RebarSpec[] {
+  if (p.nSup <= 0) return [];
+  const layout = planTopLayout(p);
+  const hookLen = Math.max(15 * p.supD, 150);
+  const supLen = Math.max(p.L * p.supLenRatio, 4 * p.supD);
+  const specs: RebarSpec[] = [];
+
+  const emitPair = (z: number, y: number, tag: string) => {
+    // 左端负筋：x 从 0 伸到 supLen，外端 90° 钩下
+    specs.push({
+      id: `kl-sup-L-${tag}`,
+      kind: 'longitudinal',
+      diameter: p.supD,
+      grade: p.longGrade,
+      points: [
+        new THREE.Vector3(0, y - hookLen, z),
+        new THREE.Vector3(0, y, z),
+        new THREE.Vector3(supLen, y, z),
+      ],
+    });
+    // 右端负筋：镜像
+    specs.push({
+      id: `kl-sup-R-${tag}`,
+      kind: 'longitudinal',
+      diameter: p.supD,
+      grade: p.longGrade,
+      points: [
+        new THREE.Vector3(p.L - supLen, y, z),
+        new THREE.Vector3(p.L, y, z),
+        new THREE.Vector3(p.L, y - hookLen, z),
+      ],
+    });
+  };
+
+  layout.zsSupRow1.forEach((z, i) => emitPair(z, layout.yRow1, `r1-${i}`));
+  layout.zsSupRow2.forEach((z, i) => emitPair(z, layout.yRow2, `r2-${i}`));
   return specs;
 }
 
@@ -163,5 +276,5 @@ function buildStirrups(p: KLParams): RebarSpec[] {
 }
 
 export function generateKLRebars(p: KLParams): RebarSpec[] {
-  return [...buildLongitudinals(p), ...buildStirrups(p)];
+  return [...buildLongitudinals(p), ...buildSupportBars(p), ...buildStirrups(p)];
 }

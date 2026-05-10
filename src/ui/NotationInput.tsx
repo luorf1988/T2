@@ -33,29 +33,34 @@ export function NotationInput() {
   };
 
   return (
-    <div className="mb-4 border border-neutral-800 rounded p-3 bg-neutral-900/60">
-      <div className="text-neutral-300 mb-1 text-xs">平法标注（按 Enter 应用）</div>
+    <div className="mb-md p-md rounded border border-outline-variant bg-surface-container-low">
+      <div className="text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant mb-2">
+        平法标注（按 Enter 应用）
+      </div>
       <input
         type="text"
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && apply()}
-        className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-neutral-100 text-sm font-mono"
+        className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-1.5 font-mono text-data-mono text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container focus:outline-none"
         placeholder="KZ1 700×700 20C22 C10@100/200"
       />
       <div className="flex gap-2 mt-2">
-        <button onClick={apply} className="text-xs px-3 py-1 rounded bg-amber-600 hover:bg-amber-500 text-neutral-950">
+        <button
+          onClick={apply}
+          className="text-label-sm uppercase tracking-wider px-3 py-1.5 rounded bg-primary-container text-on-primary hover:bg-primary transition-colors"
+        >
           应用
         </button>
         <button
           onClick={() => setText('KZ1 700×700 20C22 C10@100/200')}
-          className="text-xs px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700"
+          className="text-label-sm uppercase tracking-wider px-3 py-1.5 rounded border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-colors"
         >
           示例
         </button>
       </div>
-      {error && <div className="mt-2 text-xs text-red-400 whitespace-pre-line">{error}</div>}
-      {ok && <div className="mt-2 text-xs text-green-400">{ok}</div>}
+      {error && <div className="mt-2 text-label-sm text-on-error-container whitespace-pre-line">{error}</div>}
+      {ok && <div className="mt-2 text-label-sm text-primary-container">{ok}</div>}
     </div>
   );
 }

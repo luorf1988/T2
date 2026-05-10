@@ -15,9 +15,9 @@ export function KLScene() {
     if (explode <= 0.001) return specs;
     return specs.map((s) => {
       if (s.kind === 'longitudinal') {
-        // 上部筋上推、下部筋下推
-        const y = s.points[0].y;
-        const dir = y > kl.h / 2 ? 1 : -1;
+        // 上部筋（含端支座负筋）向上推、下部筋向下推（远离梁中心）。
+        const isTop = s.id.startsWith('kl-top-') || s.id.startsWith('kl-sup-');
+        const dir = isTop ? 1 : -1;
         const offset = new THREE.Vector3(0, dir * 200 * explode, 0);
         return { ...s, points: s.points.map((p) => p.clone().add(offset)) };
       }
@@ -47,7 +47,7 @@ export function KLScene() {
         visible={ui.showConcrete}
       />
       {filtered.map((s) => {
-        const color = s.id.startsWith('kl-top-')
+        const color = s.id.startsWith('kl-top-') || s.id.startsWith('kl-sup-')
           ? ui.colorLongTop
           : s.id.startsWith('kl-bot-')
             ? ui.colorLongBot
