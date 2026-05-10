@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Environment, Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { Suspense } from 'react';
 import { KZScene } from './three/components/KZScene';
 import { KLScene } from './three/components/KLScene';
@@ -33,10 +33,12 @@ export default function App() {
           gl={{ antialias: true, localClippingEnabled: true }}
         >
           <color attach="background" args={['#1a1d22']} />
-          <ambientLight intensity={0.3} />
+          {/* 本地灯光（不依赖外网 HDR）：环境光 + 主光 + 两个补光，模拟库房环境反射 */}
+          <ambientLight intensity={0.55} />
+          <hemisphereLight color="#cfd6dc" groundColor="#22252b" intensity={0.6} />
           <directionalLight
             position={[5, 8, 4]}
-            intensity={1.2}
+            intensity={1.1}
             castShadow
             shadow-mapSize-width={2048}
             shadow-mapSize-height={2048}
@@ -45,8 +47,9 @@ export default function App() {
             shadow-camera-top={5}
             shadow-camera-bottom={-5}
           />
+          <directionalLight position={[-6, 4, -3]} intensity={0.45} color="#bcd0e6" />
+          <directionalLight position={[0, -4, 6]} intensity={0.25} color="#ffd9a6" />
           <Suspense fallback={null}>
-            <Environment preset="warehouse" />
             <group position={[0, 0, 0]}>
               {mode === 'KZ' ? <KZScene /> : <KLScene />}
             </group>
